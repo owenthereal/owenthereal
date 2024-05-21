@@ -13,10 +13,18 @@ root = pathlib.Path(__file__).parent.resolve()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
+        }
+
 def fetch_feed(url: str) -> List[Dict[str, str]]:
     """Fetches and parses the RSS feed from the given URL."""
     try:
-        response = requests.get(url)
+        response = requests.get(url, headers=HEADERS)
         response.raise_for_status()
         feed = feedparser.parse(response.content)
         if not feed.entries:
@@ -30,19 +38,22 @@ def fetch_feed(url: str) -> List[Dict[str, str]]:
         return []
 
     return [
-        {
-            "title": entry.title,
-            "url": entry.link,
-            "date": get_entry_date(entry),
-        }
-        for entry in feed.entries[:DEFAULT_N]
-    ]
+            {
+                "title": entry.get("title", "No Title"),
+                "url": entry.get("link", ""),
+                "date": get_entry_date(entry),
+                }
+            for entry in feed.entries[:DEFAULT_N]
+            ]
 
 def format_feed_entry(entry: Dict[str, str]) -> str:
     """Formats a feed entry as a markdown link."""
     title = entry.get("title", "No Title")
     link = entry.get("url", "")
     date = entry.get("date", "")
+
+    if not link:
+        logging.warning(f"Feed entry '{title}' is missing a URL.")
 
     return f"[{title}]({link})"
 
@@ -61,7 +72,12 @@ def replace_chunk(content: str, marker: str, chunk: str, inline: bool = False) -
     if not inline:
         chunk = f"\n{chunk}\n"
 
-    return r.sub(f"<!-- {marker} start -->{chunk}<!-- {marker} end -->", content)
+    match = r.search(content)
+    if match:
+        return r.sub(f"<!-- {marker} start -->{chunk}<!-- {marker} end -->", content)
+    else:
+        logging.error(f"Marker '{marker}' not found in the content.")
+        return content
 
 if __name__ == "__main__":
     readme = root / "README.md"
