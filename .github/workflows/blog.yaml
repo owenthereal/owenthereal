@@ -1,0 +1,33 @@
+name: Fetch latest posts from blog for README
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+        contents: write
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+    - name: Create and activate virtual environment
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        python -m pip install --upgrade pip
+    - name: Install Python dependencies
+      run: |
+        source venv/bin/activate
+        pip install -r requirements.txt
+    - name: Update README
+      run: |-
+        source venv/bin/activate
+        python feed.py
+    - uses: stefanzweifel/git-auto-commit-action@v5
